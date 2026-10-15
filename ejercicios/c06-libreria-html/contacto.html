@@ -30,6 +30,43 @@
     </nav>
   </header>
 
+  <main class="container py-5">
+    <div class="row justify-content-center">
+      <section class="col-md-10 col-lg-7">
+        <h1 class="mb-2">Contacto</h1>
+        <p class="text-body-secondary mb-4">Completá el formulario y te respondemos a la brevedad.</p>
+
+        <!-- Formulario de contacto: todos los campos son obligatorios -->
+        <form id="form-contacto">
+          <div class="mb-3">
+            <label for="nombre" class="form-label">Nombre</label>
+            <input type="text" id="nombre" name="nombre" class="form-control" autocomplete="name" required>
+          </div>
+          <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" id="email" name="email" class="form-control" placeholder="nombre@ejemplo.com" autocomplete="email" required>
+          </div>
+          <div class="mb-3">
+            <label for="asunto" class="form-label">Asunto</label>
+            <select id="asunto" name="asunto" class="form-select" required>
+              <option value="" selected disabled>Elegí una opción</option>
+              <option value="consulta">Consulta</option>
+              <option value="reclamo">Reclamo</option>
+              <option value="sugerencia">Sugerencia</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label for="mensaje" class="form-label">Mensaje</label>
+            <textarea id="mensaje" name="mensaje" class="form-control" rows="5" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-send"></i> Enviar
+          </button>
+        </form>
+      </section>
+    </div>
+  </main>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/data.js"></script>
 </body>
