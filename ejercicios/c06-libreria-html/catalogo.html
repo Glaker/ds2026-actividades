@@ -30,6 +30,30 @@
     </nav>
   </header>
 
+  <main class="container py-5">
+    <h1 class="mb-4">Catálogo</h1>
+
+    <!-- Buscador -->
+    <section class="mb-4">
+      <form id="form-busqueda" class="row g-2" role="search">
+        <div class="col-sm-9 col-lg-10">
+          <label for="input-busqueda" class="visually-hidden">Buscar libros</label>
+          <input type="text" id="input-busqueda" class="form-control form-control-lg" placeholder="Título, autor o tema...">
+        </div>
+        <div class="col-sm-3 col-lg-2 d-grid">
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-search"></i> Buscar
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Resultados de la búsqueda -->
+    <section>
+      <div id="resultados" aria-live="polite"></div>
+    </section>
+  </main>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/data.js"></script>
 </body>
