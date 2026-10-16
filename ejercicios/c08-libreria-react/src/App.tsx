@@ -1,6 +1,14 @@
-// Componente raíz: por ahora solo un título, la home se arma en los próximos pasos
+import { Container } from 'react-bootstrap'
+
+// Componente raíz: prueba rápida de que react-bootstrap y los íconos cargan
 function App() {
-  return <h1>Librería</h1>
+  return (
+    <Container className="py-4">
+      <h1>
+        <i className="bi bi-book-half"></i> Librería
+      </h1>
+    </Container>
+  )
 }
 
 export default App
