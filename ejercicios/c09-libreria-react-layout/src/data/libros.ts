@@ -1,10 +1,4 @@
-// Forma de cada libro del listado
-export type Libro = {
-  id: number
-  titulo: string
-  autor: string
-  imagen: string
-}
+import type { Libro } from '../types/libro'
 
 // Libros destacados de la home (los mismos 6 de la C06)
 export const librosDestacados: Libro[] = [
