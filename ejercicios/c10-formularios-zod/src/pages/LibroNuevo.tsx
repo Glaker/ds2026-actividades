@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import type { ChangeEvent, FormEvent } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Button, Form } from 'react-bootstrap'
+import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { libroSchema } from '../schemas/libroSchema'
+import type { LibroFormInput, LibroValidado } from '../schemas/libroSchema'
 import type { Libro } from '../types/libro'
 
 // App le pasa la función que agrega el libro al estado
@@ -10,102 +11,60 @@ type LibroNuevoProps = {
   onAgregar: (nuevo: Libro) => void
 }
 
-// Valores del formulario: precio es string porque así lo devuelve el input
-type FormLibro = {
-  titulo: string
-  autor: string
-  precio: string
-  disponible: boolean
-}
-
 // Portada local para los libros cargados a mano (no depende de internet)
 const PORTADA_DEFAULT = '/img/sin-portada.svg'
 
-const FORM_VACIO: FormLibro = { titulo: '', autor: '', precio: '', disponible: true }
-
-// Formulario controlado para dar de alta un libro
+// Formulario de alta con React Hook Form; las reglas las pone el schema de Zod
 function LibroNuevo({ onAgregar }: LibroNuevoProps) {
-  const [form, setForm] = useState<FormLibro>(FORM_VACIO)
-  const [errores, setErrores] = useState<Record<string, string>>({})
   const navigate = useNavigate()
 
-  // Un solo handler: usa el name del input como clave; el checkbox usa checked
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target
-    setForm({ ...form, [name]: type === 'checkbox' ? checked : value })
-  }
+  // Genéricos: valores crudos del form, contexto, y datos ya validados que recibe onSubmit
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LibroFormInput, unknown, LibroValidado>({
+    resolver: zodResolver(libroSchema),
+    defaultValues: { titulo: '', autor: '', precio: '', disponible: true },
+  })
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    // safeParse no lanza excepción: devuelve success + data o error
-    const resultado = libroSchema.safeParse(form)
-
-    if (!resultado.success) {
-      // Un mensaje por campo (el primero que falle)
-      const nuevosErrores: Record<string, string> = {}
-      for (const issue of resultado.error.issues) {
-        const campo = String(issue.path[0])
-        if (!nuevosErrores[campo]) nuevosErrores[campo] = issue.message
-      }
-      setErrores(nuevosErrores)
-      return
-    }
-
-    // resultado.data ya viene validado y tipado (precio es number, strings con trim)
-    setErrores({})
-    onAgregar({ id: Date.now(), imagen: PORTADA_DEFAULT, ...resultado.data })
+  // Solo se ejecuta si el schema validó; datos ya tipados (precio es number)
+  const onSubmit = (datos: LibroValidado) => {
+    onAgregar({ id: Date.now(), imagen: PORTADA_DEFAULT, ...datos })
     navigate('/catalogo')
   }
 
   return (
     <section className="mx-auto" style={{ maxWidth: 560 }}>
       <h1 className="mb-4">Nuevo libro</h1>
-      {/* noValidate: la validación la hacemos nosotros, no el navegador */}
-      <Form noValidate onSubmit={handleSubmit}>
+      {/* noValidate: la validación la hace Zod, no el navegador */}
+      <Form noValidate onSubmit={handleSubmit(onSubmit)}>
         <Form.Group className="mb-3" controlId="titulo">
           <Form.Label>Título</Form.Label>
-          <Form.Control
-            name="titulo"
-            value={form.titulo}
-            onChange={handleChange}
-            isInvalid={!!errores.titulo}
-          />
-          <Form.Control.Feedback type="invalid">{errores.titulo}</Form.Control.Feedback>
+          <Form.Control {...register('titulo')} isInvalid={!!errors.titulo} />
+          <Form.Control.Feedback type="invalid">{errors.titulo?.message}</Form.Control.Feedback>
         </Form.Group>
 
         <Form.Group className="mb-3" controlId="autor">
           <Form.Label>Autor</Form.Label>
-          <Form.Control
-            name="autor"
-            value={form.autor}
-            onChange={handleChange}
-            isInvalid={!!errores.autor}
-          />
-          <Form.Control.Feedback type="invalid">{errores.autor}</Form.Control.Feedback>
+          <Form.Control {...register('autor')} isInvalid={!!errors.autor} />
+          <Form.Control.Feedback type="invalid">{errors.autor?.message}</Form.Control.Feedback>
         </Form.Group>
 
         <Form.Group className="mb-3" controlId="precio">
           <Form.Label>Precio</Form.Label>
           <Form.Control
             type="number"
-            name="precio"
             min="0"
             step="0.01"
-            value={form.precio}
-            onChange={handleChange}
-            isInvalid={!!errores.precio}
+            {...register('precio')}
+            isInvalid={!!errors.precio}
           />
-          <Form.Control.Feedback type="invalid">{errores.precio}</Form.Control.Feedback>
+          <Form.Control.Feedback type="invalid">{errors.precio?.message}</Form.Control.Feedback>
         </Form.Group>
 
         <Form.Group className="mb-4" controlId="disponible">
-          <Form.Check
-            type="checkbox"
-            name="disponible"
-            label="Disponible"
-            checked={form.disponible}
-            onChange={handleChange}
-          />
+          <Form.Check type="checkbox" label="Disponible" {...register('disponible')} />
         </Form.Group>
 
         <Button type="submit">Agregar libro</Button>

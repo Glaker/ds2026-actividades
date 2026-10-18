@@ -11,3 +11,6 @@ export const libroSchema = z.object({
 
 // Tipo de los datos ya validados (precio es number, strings sin espacios)
 export type LibroValidado = z.infer<typeof libroSchema>
+
+// Tipo de los valores crudos del formulario (antes de validar): con coerce, precio es unknown
+export type LibroFormInput = z.input<typeof libroSchema>
