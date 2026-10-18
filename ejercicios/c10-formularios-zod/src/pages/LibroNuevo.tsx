@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { Button, Form } from 'react-bootstrap'
 import { useNavigate } from 'react-router-dom'
+import { libroSchema } from '../schemas/libroSchema'
 import type { Libro } from '../types/libro'
 
 // App le pasa la función que agrega el libro al estado
@@ -22,15 +23,6 @@ const PORTADA_DEFAULT = '/img/sin-portada.svg'
 
 const FORM_VACIO: FormLibro = { titulo: '', autor: '', precio: '', disponible: true }
 
-// Devuelve un error por campo inválido; vacío si todo está bien
-function validar(form: FormLibro): Record<string, string> {
-  const errores: Record<string, string> = {}
-  if (form.titulo.trim() === '') errores.titulo = 'El título es obligatorio'
-  if (form.autor.trim() === '') errores.autor = 'El autor es obligatorio'
-  if (!(Number(form.precio) > 0)) errores.precio = 'El precio debe ser mayor a 0'
-  return errores
-}
-
 // Formulario controlado para dar de alta un libro
 function LibroNuevo({ onAgregar }: LibroNuevoProps) {
   const [form, setForm] = useState<FormLibro>(FORM_VACIO)
@@ -45,18 +37,23 @@ function LibroNuevo({ onAgregar }: LibroNuevoProps) {
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const nuevosErrores = validar(form)
-    setErrores(nuevosErrores)
-    if (Object.keys(nuevosErrores).length > 0) return
+    // safeParse no lanza excepción: devuelve success + data o error
+    const resultado = libroSchema.safeParse(form)
 
-    onAgregar({
-      id: Date.now(),
-      titulo: form.titulo.trim(),
-      autor: form.autor.trim(),
-      imagen: PORTADA_DEFAULT,
-      precio: Number(form.precio),
-      disponible: form.disponible,
-    })
+    if (!resultado.success) {
+      // Un mensaje por campo (el primero que falle)
+      const nuevosErrores: Record<string, string> = {}
+      for (const issue of resultado.error.issues) {
+        const campo = String(issue.path[0])
+        if (!nuevosErrores[campo]) nuevosErrores[campo] = issue.message
+      }
+      setErrores(nuevosErrores)
+      return
+    }
+
+    // resultado.data ya viene validado y tipado (precio es number, strings con trim)
+    setErrores({})
+    onAgregar({ id: Date.now(), imagen: PORTADA_DEFAULT, ...resultado.data })
     navigate('/catalogo')
   }
 
