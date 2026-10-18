@@ -20,6 +20,9 @@ function Header() {
               <Nav.Link as={Link} to="/catalogo">
                 Catálogo
               </Nav.Link>
+              <Nav.Link as={Link} to="/libros/nuevo">
+                Nuevo libro
+              </Nav.Link>
             </Nav>
           </Navbar.Collapse>
         </Container>

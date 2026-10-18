@@ -1,9 +1,14 @@
-import { Col, Image, Row } from 'react-bootstrap'
+import { Badge, Col, Image, Row } from 'react-bootstrap'
 import { Link, useParams } from 'react-router-dom'
-import { libros } from '../data/libros'
+import type { Libro } from '../types/libro'
+
+// Recibe el listado desde App, así también encuentra los libros recién agregados
+type LibroDetalleProps = {
+  libros: Libro[]
+}
 
 // Detalle de un libro según el :id de la URL (ej: /libros/3)
-function LibroDetalle() {
+function LibroDetalle({ libros }: LibroDetalleProps) {
   // useParams devuelve los parámetros de la ruta como string
   const { id } = useParams<{ id: string }>()
   const libro = libros.find((l) => l.id === Number(id))
@@ -28,6 +33,12 @@ function LibroDetalle() {
       <Col md={8}>
         <h1>{libro.titulo}</h1>
         <p className="lead text-body-secondary">{libro.autor}</p>
+        <p className="fs-4">
+          ${libro.precio.toLocaleString('es-AR')}{' '}
+          <Badge bg={libro.disponible ? 'success' : 'secondary'}>
+            {libro.disponible ? 'Disponible' : 'Sin stock'}
+          </Badge>
+        </p>
         <Link to="/catalogo" className="btn btn-outline-primary">
           <i className="bi bi-arrow-left"></i> Volver al catálogo
         </Link>

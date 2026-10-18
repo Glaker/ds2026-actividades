@@ -4,4 +4,6 @@ export type Libro = {
   titulo: string
   autor: string
   imagen: string
+  precio: number
+  disponible: boolean
 }

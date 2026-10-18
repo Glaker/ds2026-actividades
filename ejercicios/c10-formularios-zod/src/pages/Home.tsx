@@ -1,9 +1,14 @@
 import Hero from '../components/Hero'
 import ListaLibros from '../components/ListaLibros'
-import { libros } from '../data/libros'
+import type { Libro } from '../types/libro'
+
+// Recibe el listado desde App (el estado)
+type HomeProps = {
+  libros: Libro[]
+}
 
 // Página de inicio: hero y los primeros libros como destacados
-function Home() {
+function Home({ libros }: HomeProps) {
   return (
     <>
       <Hero
