@@ -1,8 +1,13 @@
+import Layout from './components/Layout/Layout'
 import Home from './pages/Home'
 
-// Componente raíz: por ahora solo muestra la página de inicio
+// Componente raíz: envuelve la página de inicio con el Layout común
 function App() {
-  return <Home />
+  return (
+    <Layout>
+      <Home />
+    </Layout>
+  )
 }
 
 export default App

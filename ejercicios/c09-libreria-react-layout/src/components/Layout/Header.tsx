@@ -1,7 +1,7 @@
 import { Container, Nav, Navbar } from 'react-bootstrap'
 
-// Barra de navegación oscura; en pantallas chicas los links se colapsan en el botón hamburguesa
-function AppNavbar() {
+// Encabezado del sitio: barra de navegación oscura; en pantallas chicas los links se colapsan en el botón hamburguesa
+function Header() {
   return (
     <header>
       <Navbar expand="lg" bg="dark" data-bs-theme="dark">
@@ -23,4 +23,4 @@ function AppNavbar() {
   )
 }
 
-export default AppNavbar
+export default Header
