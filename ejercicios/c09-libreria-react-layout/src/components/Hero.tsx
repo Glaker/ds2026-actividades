@@ -1,4 +1,5 @@
-import { Button, Container } from 'react-bootstrap'
+import { Container } from 'react-bootstrap'
+import { Link } from 'react-router-dom'
 
 // Textos que recibe la sección de bienvenida
 type HeroProps = {
@@ -13,9 +14,10 @@ function Hero({ titulo, subtitulo }: HeroProps) {
       <Container className="py-5">
         <h1 className="display-4 fw-bold">{titulo}</h1>
         <p className="lead mb-4">{subtitulo}</p>
-        <Button variant="light" size="lg" href="#destacados">
+        {/* Link con clases de botón de Bootstrap (Button no tipa bien con as={Link}) */}
+        <Link to="/catalogo" className="btn btn-light btn-lg">
           Ver catálogo
-        </Button>
+        </Link>
       </Container>
     </section>
   )

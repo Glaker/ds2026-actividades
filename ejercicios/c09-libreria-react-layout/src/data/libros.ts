@@ -1,7 +1,7 @@
 import type { Libro } from '../types/libro'
 
-// Libros destacados de la home (los mismos 6 de la C06)
-export const librosDestacados: Libro[] = [
+// Libros de la tienda (los mismos 6 de la C06); el id identifica cada uno en la URL
+export const libros: Libro[] = [
   {
     id: 1,
     titulo: 'Cien años de soledad',

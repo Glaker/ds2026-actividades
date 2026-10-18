@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Button, Card } from 'react-bootstrap'
+import { Link } from 'react-router-dom'
 
 // Datos que recibe la card desde el componente padre
 type LibroCardProps = {
+  id: number
   titulo: string
   autor: string
   imagen: string
@@ -12,7 +14,7 @@ type LibroCardProps = {
 const PORTADA_DEFAULT = '/img/sin-portada.svg'
 
 // Card de un libro: portada, título, autor, botón "Me gusta" y "Ver más"
-function LibroCard({ titulo, autor, imagen }: LibroCardProps) {
+function LibroCard({ id, titulo, autor, imagen }: LibroCardProps) {
   // Estado propio de cada card: cada instancia lleva su contador
   const [likes, setLikes] = useState<number>(0)
 
@@ -42,9 +44,13 @@ function LibroCard({ titulo, autor, imagen }: LibroCardProps) {
           >
             <i className="bi bi-heart-fill"></i> Me gusta ({likes})
           </Button>
-          <Button variant="outline-primary" className="flex-grow-1">
+          {/* Lleva al detalle de este libro, ej: /libros/3 */}
+          <Link
+            to={`/libros/${id}`}
+            className="btn btn-outline-primary flex-grow-1"
+          >
             Ver más
-          </Button>
+          </Link>
         </div>
       </Card.Body>
     </Card>
