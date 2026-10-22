@@ -4,18 +4,9 @@ import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { libroSchema } from '../schemas/libroSchema'
 import type { LibroFormInput, LibroValidado } from '../schemas/libroSchema'
-import type { Libro } from '../types/libro'
-
-// App le pasa la función que agrega el libro al estado
-type LibroNuevoProps = {
-  onAgregar: (nuevo: Libro) => void
-}
-
-// Portada local para los libros cargados a mano (no depende de internet)
-const PORTADA_DEFAULT = '/img/sin-portada.svg'
 
 // Formulario de alta con React Hook Form; las reglas las pone el schema de Zod
-function LibroNuevo({ onAgregar }: LibroNuevoProps) {
+function LibroNuevo() {
   const navigate = useNavigate()
 
   // Genéricos: valores crudos del form, contexto, y datos ya validados que recibe onSubmit
@@ -30,7 +21,8 @@ function LibroNuevo({ onAgregar }: LibroNuevoProps) {
 
   // Solo se ejecuta si el schema validó; datos ya tipados (precio es number)
   const onSubmit = (datos: LibroValidado) => {
-    onAgregar({ id: Date.now(), imagen: PORTADA_DEFAULT, ...datos })
+    // TODO: POST al backend (Bloque 3)
+    console.log('Libro válido (todavía no se guarda):', datos)
     navigate('/catalogo')
   }
 

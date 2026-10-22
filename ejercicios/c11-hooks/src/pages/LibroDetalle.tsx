@@ -1,17 +1,18 @@
-import { Badge, Col, Image, Row } from 'react-bootstrap'
+import { Alert, Badge, Col, Image, Row, Spinner } from 'react-bootstrap'
 import { Link, useParams } from 'react-router-dom'
+import { useFetch } from '../hooks/useFetch'
 import type { Libro } from '../types/libro'
 
-// Recibe el listado desde App, así también encuentra los libros recién agregados
-type LibroDetalleProps = {
-  libros: Libro[]
-}
-
 // Detalle de un libro según el :id de la URL (ej: /libros/3)
-function LibroDetalle({ libros }: LibroDetalleProps) {
+function LibroDetalle() {
   // useParams devuelve los parámetros de la ruta como string
   const { id } = useParams<{ id: string }>()
-  const libro = libros.find((l) => l.id === Number(id))
+  const { data: libros, loading, error } = useFetch<Libro[]>('/libros.json')
+
+  if (loading) return <Spinner animation="border" />
+  if (error) return <Alert variant="danger">{error}</Alert>
+
+  const libro = (libros ?? []).find((l) => l.id === Number(id))
 
   if (!libro) {
     return (

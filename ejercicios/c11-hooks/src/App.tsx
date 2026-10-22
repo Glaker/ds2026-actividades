@@ -10,12 +10,11 @@ function App() {
   return (
     <Layout>
       <Routes>
-        {/* TEMPORAL (paso 4): Home, LibroDetalle y LibroNuevo todavía piden props */}
-        <Route path="/" element={<Home libros={[]} />} />
+        <Route path="/" element={<Home />} />
         <Route path="/catalogo" element={<Catalogo />} />
         {/* Va antes que /libros/:id por claridad (React Router igual prioriza la ruta fija) */}
-        <Route path="/libros/nuevo" element={<LibroNuevo onAgregar={() => {}} />} />
-        <Route path="/libros/:id" element={<LibroDetalle libros={[]} />} />
+        <Route path="/libros/nuevo" element={<LibroNuevo />} />
+        <Route path="/libros/:id" element={<LibroDetalle />} />
       </Routes>
     </Layout>
   )
