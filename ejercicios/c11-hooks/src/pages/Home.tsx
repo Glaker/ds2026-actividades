@@ -1,0 +1,27 @@
+import Hero from '../components/Hero'
+import ListaLibros from '../components/ListaLibros'
+import type { Libro } from '../types/libro'
+
+// Recibe el listado desde App (el estado)
+type HomeProps = {
+  libros: Libro[]
+}
+
+// Página de inicio: hero y los primeros libros como destacados
+function Home({ libros }: HomeProps) {
+  return (
+    <>
+      <Hero
+        titulo="Bienvenido a la Librería"
+        subtitulo="Encontrá tu próxima lectura entre miles de títulos."
+      />
+
+      <section className="pt-5">
+        <h2 className="mb-4">Destacados</h2>
+        <ListaLibros libros={libros.slice(0, 3)} />
+      </section>
+    </>
+  )
+}
+
+export default Home
