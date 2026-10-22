@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout/Layout'
-import { librosIniciales } from './data/libros'
 import Catalogo from './pages/Catalogo'
 import Home from './pages/Home'
 import LibroDetalle from './pages/LibroDetalle'
@@ -11,7 +10,7 @@ import type { Libro } from './types/libro'
 // Componente raíz: el Layout es fijo y Routes elige qué página mostrar según la URL
 function App() {
   // El listado vive acá para que todas las páginas compartan los mismos datos
-  const [libros, setLibros] = useState<Libro[]>(librosIniciales)
+  const [libros, setLibros] = useState<Libro[]>([]) // TEMPORAL: se elimina en el paso 3
 
   // Agrega sin mutar: crea un array nuevo con el libro al final
   const agregarLibro = (nuevo: Libro) => setLibros([...libros, nuevo])
