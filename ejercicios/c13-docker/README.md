@@ -40,17 +40,3 @@ c13-docker/
 ├── docker-compose.yml   # servicios api y db + volumen pgdata
 └── .gitignore
 ```
-
-## Pendiente de probar
-
-Desde esta carpeta (borrar la sección cuando se verifique):
-
-```bash
-docker compose build
-docker compose up -d
-docker compose ps
-curl http://localhost:3000
-docker compose logs api
-docker compose exec db psql -U <usuario> -d libreria_db -c "select version();"
-docker compose down
-```
