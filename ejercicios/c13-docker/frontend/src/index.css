@@ -1,0 +1,10 @@
+/* Hero de la portada: degradado llamativo (igual que en la C06) */
+.hero {
+  background: linear-gradient(135deg, #6f42c1, #d63384);
+}
+
+/* Portadas de las cards: misma altura sin deformar la imagen */
+.portada {
+  height: 320px;
+  object-fit: cover;
+}
