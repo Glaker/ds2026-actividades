@@ -46,12 +46,3 @@ Para bajar: `docker compose down` (conserva los datos de Postgres) o `docker com
 
 1. Instalar la extensión **REST Client** en VS Code.
 2. Abrir `backend/api.http` y hacer clic en "Send Request" sobre cada request.
-
-## Pendiente de probar
-
-Docker no está instalado en la máquina de desarrollo, así que falta validar:
-
-- `docker compose up --build` completo (api + db).
-- El hot reload dentro del contenedor (editar `src/` y ver que la API se reinicia).
-
-Lo que sí se probó: el backend sin Docker (`PORT=3000 npx tsx src/index.ts`) y `npx tsc --noEmit`.

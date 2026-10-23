@@ -4,7 +4,6 @@ const app = express();
 // El puerto viene del entorno (.env); 3000 por defecto
 const PORT = process.env.PORT ?? 3000;
 
-// Misma forma que frontend/src/types/libro.ts
 interface Libro {
   id: number;
   titulo: string;
@@ -37,7 +36,7 @@ app.get("/", (_req, res) => {
   res.json({ mensaje: "API de la Librería 🐳" });
 });
 
-// GET /libros?disponible=true|false  (req.query siempre llega como string)
+// disponible llega como string en req.query
 app.get("/libros", (req, res) => {
   const { disponible } = req.query;
   if (disponible === "true" || disponible === "false") {
