@@ -123,14 +123,3 @@ Todos los errores inesperados responden `500 { "error": "Error interno del servi
 1. Instalar la extensión **REST Client** en VS Code.
 2. Abrir `backend/api.http` (es el de C15, sin cambios) y hacer clic en "Send Request" sobre cada request.
 3. Correrlas en orden con la base recién migrada y sembrada: el libro creado recibe `id 5` y el autor creado `id 4`.
-
-## Pendiente de probar
-
-No se tuvo Docker durante el desarrollo, así que nada se probó contra Postgres. Verificado sin base: `prisma validate`, `prisma generate`, `tsc --noEmit` y que el cliente carga. Falta:
-
-- [ ] Aplicar la migración (`migrate dev` o `migrate deploy`) y ver las tablas creadas.
-- [ ] Correr el seed.
-- [ ] Correr `api.http` entero contra Postgres (status esperados, incluidos los 404).
-- [ ] Comprobar que los datos sobreviven a `docker compose restart api`.
-- [ ] Comprobar que Prisma Studio abre en <http://localhost:5555> desde el navegador.
-- [ ] Confirmar que `depends_on` con healthcheck hace esperar a la API.
