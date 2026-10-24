@@ -1,0 +1,26 @@
+services:
+  # API Express (se construye con backend/Dockerfile)
+  api:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - backend/.env
+    volumes:
+      - ./backend/src:/app/src
+    depends_on:
+      - db
+
+  # Base de datos Postgres (imagen oficial, sin Dockerfile propio)
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    env_file:
+      - backend/.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+# Volumen con nombre: los datos sobreviven a down (se borran con down -v)
+volumes:
+  pgdata:
