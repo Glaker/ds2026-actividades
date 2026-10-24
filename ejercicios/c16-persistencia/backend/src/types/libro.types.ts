@@ -1,8 +1,2 @@
-export interface Libro {
-  id: number;
-  titulo: string;
-  autor: string;
-  imagen: string;
-  precio: number;
-  disponible: boolean;
-}
+// El tipo sale del schema de Prisma: si cambia el modelo, cambia el tipo solo
+export type { LibroModel as Libro } from "../generated/prisma/models";
