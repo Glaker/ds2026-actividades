@@ -1,11 +1,79 @@
+@baseUrl = http://localhost:3000
+
+# Correr en orden con el servidor recién levantado:
+# el libro creado recibe id 5 y el autor creado id 4.
+
 ### Hello
-GET http://localhost:3000/
+GET {{baseUrl}}/
 
 ### Listar libros
-GET http://localhost:3000/libros
+GET {{baseUrl}}/api/libros
 
-### Listar libros disponibles
-GET http://localhost:3000/libros?disponible=true
+### Solo libros disponibles
+GET {{baseUrl}}/api/libros?disponible=true
+
+### Un libro (id 1)
+GET {{baseUrl}}/api/libros/1
+
+### Libro inexistente (404)
+GET {{baseUrl}}/api/libros/999
+
+### Crear libro (201)
+POST {{baseUrl}}/api/libros
+Content-Type: application/json
+
+{
+  "titulo": "Pedro Páramo",
+  "autor": "Juan Rulfo",
+  "imagen": "/img/portada-5.jpg",
+  "precio": 11000,
+  "disponible": true
+}
+
+### Editar libro (200)
+PUT {{baseUrl}}/api/libros/5
+Content-Type: application/json
+
+{
+  "titulo": "Pedro Páramo (edición revisada)",
+  "autor": "Juan Rulfo",
+  "imagen": "/img/portada-5.jpg",
+  "precio": 12500,
+  "disponible": false
+}
+
+### Borrar libro (204)
+DELETE {{baseUrl}}/api/libros/5
+
+### Borrar de nuevo (404)
+DELETE {{baseUrl}}/api/libros/5
 
 ### Listar autores
-GET http://localhost:3000/autores
+GET {{baseUrl}}/api/autores
+
+### Autor inexistente (404)
+GET {{baseUrl}}/api/autores/999
+
+### Crear autor (201)
+POST {{baseUrl}}/api/autores
+Content-Type: application/json
+
+{
+  "nombre": "Juan Rulfo",
+  "nacionalidad": "México"
+}
+
+### Editar autor (200)
+PUT {{baseUrl}}/api/autores/4
+Content-Type: application/json
+
+{
+  "nombre": "Juan Rulfo Vizcaíno",
+  "nacionalidad": "México"
+}
+
+### Borrar autor (204)
+DELETE {{baseUrl}}/api/autores/4
+
+### Borrar autor de nuevo (404)
+DELETE {{baseUrl}}/api/autores/4
