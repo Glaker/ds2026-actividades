@@ -4,12 +4,19 @@ services:
     build: ./backend
     ports:
       - "3000:3000"
+      # Prisma Studio (se levanta a mano con docker compose exec)
+      - "5555:5555"
     env_file:
       - backend/.env
     volumes:
       - ./backend/src:/app/src
+      # Compose solo montaba src/: sin esto el contenedor no ve cambios en prisma/
+      - ./backend/prisma:/app/prisma
+      - ./backend/prisma.config.ts:/app/prisma.config.ts
+    # Espera a que Postgres acepte conexiones (no solo a que el contenedor arranque)
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   # Base de datos Postgres (imagen oficial, sin Dockerfile propio)
   db:
@@ -20,6 +27,11 @@ services:
       - backend/.env
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # $$ evita que Compose interpole la variable: la resuelve el shell del contenedor
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      retries: 10
 
 # Volumen con nombre: los datos sobreviven a down (se borran con down -v)
 volumes:
