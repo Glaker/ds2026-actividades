@@ -1,17 +1,9 @@
 import express from "express";
+import libroRoutes from "./routes/libro.routes";
 
 const app = express();
 // El puerto viene del entorno (.env); 3000 por defecto
 const PORT = process.env.PORT ?? 3000;
-
-interface Libro {
-  id: number;
-  titulo: string;
-  autor: string;
-  imagen: string;
-  precio: number;
-  disponible: boolean;
-}
 
 interface Autor {
   id: number;
@@ -19,32 +11,19 @@ interface Autor {
   nacionalidad: string;
 }
 
-const libros: Libro[] = [
-  { id: 1, titulo: "Cien años de soledad", autor: "Gabriel García Márquez", imagen: "/img/portada-1.jpg", precio: 18500, disponible: true },
-  { id: 2, titulo: "Rayuela", autor: "Julio Cortázar", imagen: "/img/portada-2.jpg", precio: 15900, disponible: true },
-  { id: 3, titulo: "Ficciones", autor: "Jorge Luis Borges", imagen: "/img/portada-3.jpg", precio: 14200, disponible: false },
-  { id: 4, titulo: "El túnel", autor: "Ernesto Sabato", imagen: "/img/portada-4.jpg", precio: 12800, disponible: true },
-];
-
 const autores: Autor[] = [
   { id: 1, nombre: "Gabriel García Márquez", nacionalidad: "Colombia" },
   { id: 2, nombre: "Julio Cortázar", nacionalidad: "Argentina" },
   { id: 3, nombre: "Jorge Luis Borges", nacionalidad: "Argentina" },
 ];
 
+app.use(express.json());
+
 app.get("/", (_req, res) => {
   res.json({ mensaje: "API de la Librería 🐳" });
 });
 
-// disponible llega como string en req.query
-app.get("/libros", (req, res) => {
-  const { disponible } = req.query;
-  if (disponible === "true" || disponible === "false") {
-    res.json(libros.filter((l) => l.disponible === (disponible === "true")));
-    return;
-  }
-  res.json(libros);
-});
+app.use("/api/libros", libroRoutes);
 
 app.get("/autores", (_req, res) => {
   res.json(autores);
