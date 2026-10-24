@@ -76,7 +76,3 @@ Hoy no se emite 400. `GET /api/libros/abc` devuelve **404** (`Number("abc")` es 
 1. Instalar la extensión **REST Client** en VS Code.
 2. Abrir `backend/api.http` y hacer clic en "Send Request" sobre cada request.
 3. Correrlas en orden con la API recién levantada: el libro creado recibe `id 5` y el autor creado `id 4`, que usan las requests de editar y borrar.
-
-## Pendiente de probar
-
-Falta validar todo dentro de Docker (`docker compose up --build`). Hasta ahora el flujo completo (todos los endpoints y sus errores) se probó con `curl` corriendo la API directamente con `PORT=3000 npx tsx src/index.ts`, sin contenedores.
