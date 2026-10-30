@@ -115,15 +115,4 @@ docker compose exec api npx prisma db seed                 # reset no corre el s
 
 La migración `relaciones_autor_categoria` hace `DROP COLUMN "autor"` y `ADD COLUMN "autorId" INTEGER NOT NULL` sin default. Sobre una base que ya tiene libros, Postgres no sabe qué `autorId` poner y la migración falla. En **desarrollo** se resuelve con `migrate reset` (se pierden los datos y el seed los vuelve a cargar). En **producción**, con datos reales, se harían tres migraciones: 1) `autorId` nullable, 2) un script que completa `autorId` buscando el autor por nombre, 3) `autorId` obligatorio y `DROP` de `autor`.
 
-La migración se generó sin base con `prisma migrate diff --from-schema <schema C16> --to-schema prisma/schema.prisma --script`.
-
-## Pendiente de probar (necesita Postgres)
-
-Se verificó sin base: `prisma validate`, `prisma generate`, `tsc --noEmit`, y los casos 400 de `api.http` levantando la API con una `DATABASE_URL` falsa (la validación corta antes de llegar a Prisma).
-
-Falta probar con Docker:
-
-- [ ] Aplicar la migración con `migrate reset --force` y revisar las tablas (`\d "Libro"`, `\d "_CategoriaToLibro"`).
-- [ ] Correr el seed y verificar: `SELECT count(*) FROM "Autor";` (4), `"Categoria"` (3), `"Libro"` (4), `"_CategoriaToLibro"` (8).
-- [ ] Correr `api.http` completo, en orden: casos felices (con `autor` anidado), 404 y 409.
-- [ ] Verificar que el `errorHandler` traduce P2002 / P2003 / P2025 con el adapter-pg real (que lleguen como `PrismaClientKnownRequestError` con esos `code`).
+La migración se generó con `prisma migrate diff --from-schema <schema C16> --to-schema prisma/schema.prisma --script`.
