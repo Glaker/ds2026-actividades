@@ -1,45 +1,53 @@
 @baseUrl = http://localhost:3000
 
-# Correr en orden con el servidor recién levantado:
-# el libro creado recibe id 5 y el autor creado id 4.
+# Correr en orden con la base recién reseteada y sembrada:
+# seed = 4 autores, 3 categorías y 4 libros. El libro creado recibe id 5,
+# el autor creado id 5 y la categoría creada id 4.
 
 ### Hello
 GET {{baseUrl}}/
 
-### Listar libros
+# ───────────── Libros ─────────────
+
+### Listar libros (200, cada uno con su autor anidado)
 GET {{baseUrl}}/api/libros
 
 ### Solo libros disponibles
 GET {{baseUrl}}/api/libros?disponible=true
 
-### Un libro (id 1)
+### Un libro (200, con autor y categorias)
 GET {{baseUrl}}/api/libros/1
 
 ### Libro inexistente (404)
-GET {{baseUrl}}/api/libros/999
+GET {{baseUrl}}/api/libros/9999
 
 ### Crear libro (201)
 POST {{baseUrl}}/api/libros
 Content-Type: application/json
 
 {
-  "titulo": "Pedro Páramo",
-  "autor": "Juan Rulfo",
+  "titulo": "Bestiario",
+  "autorId": 2,
   "imagen": "/img/portada-5.jpg",
   "precio": 11000,
   "disponible": true
 }
 
-### Editar libro (200)
+### Editar libro (200, el update acepta campos sueltos)
 PUT {{baseUrl}}/api/libros/5
 Content-Type: application/json
 
 {
-  "titulo": "Pedro Páramo (edición revisada)",
-  "autor": "Juan Rulfo",
-  "imagen": "/img/portada-5.jpg",
   "precio": 12500,
   "disponible": false
+}
+
+### Editar libro inexistente (404)
+PUT {{baseUrl}}/api/libros/9999
+Content-Type: application/json
+
+{
+  "precio": 12500
 }
 
 ### Borrar libro (204)
@@ -48,11 +56,53 @@ DELETE {{baseUrl}}/api/libros/5
 ### Borrar de nuevo (404)
 DELETE {{baseUrl}}/api/libros/5
 
+### 400 crear libro sin titulo
+POST {{baseUrl}}/api/libros
+Content-Type: application/json
+
+{
+  "autorId": 1,
+  "imagen": "/img/portada-6.jpg",
+  "precio": 9000
+}
+
+### 400 crear libro con precio negativo
+POST {{baseUrl}}/api/libros
+Content-Type: application/json
+
+{
+  "titulo": "Libro caro",
+  "autorId": 1,
+  "imagen": "/img/portada-6.jpg",
+  "precio": -500
+}
+
+### 400 id no numérico
+GET {{baseUrl}}/api/libros/abc
+
+### 400 id negativo
+GET {{baseUrl}}/api/libros/-5
+
+# Formato válido pero el autor no existe: hoy responde 409 "Hay registros relacionados"
+# porque la FK lo rechaza (P2003). Lo correcto sería 400 "El autor no existe" preguntando en el service.
+### Crear libro con autorId inexistente (409 por P2003)
+POST {{baseUrl}}/api/libros
+Content-Type: application/json
+
+{
+  "titulo": "Huérfano",
+  "autorId": 9999,
+  "imagen": "/img/portada-6.jpg",
+  "precio": 9000
+}
+
+# ───────────── Autores ─────────────
+
 ### Listar autores
 GET {{baseUrl}}/api/autores
 
 ### Autor inexistente (404)
-GET {{baseUrl}}/api/autores/999
+GET {{baseUrl}}/api/autores/9999
 
 ### Crear autor (201)
 POST {{baseUrl}}/api/autores
@@ -63,17 +113,71 @@ Content-Type: application/json
   "nacionalidad": "México"
 }
 
-### Editar autor (200)
-PUT {{baseUrl}}/api/autores/4
+### 409 autor duplicado (nombre es @unique, P2002)
+POST {{baseUrl}}/api/autores
 Content-Type: application/json
 
 {
-  "nombre": "Juan Rulfo Vizcaíno",
+  "nombre": "Juan Rulfo",
   "nacionalidad": "México"
 }
 
-### Borrar autor (204)
-DELETE {{baseUrl}}/api/autores/4
+### 400 autor sin nacionalidad
+POST {{baseUrl}}/api/autores
+Content-Type: application/json
+
+{
+  "nombre": "Sin datos"
+}
+
+### Editar autor (200)
+PUT {{baseUrl}}/api/autores/5
+Content-Type: application/json
+
+{
+  "nombre": "Juan Rulfo Vizcaíno"
+}
+
+### Borrar autor sin libros (204)
+DELETE {{baseUrl}}/api/autores/5
 
 ### Borrar autor de nuevo (404)
-DELETE {{baseUrl}}/api/autores/4
+DELETE {{baseUrl}}/api/autores/5
+
+### 409 borrar autor con libros (onDelete Restrict, P2003)
+DELETE {{baseUrl}}/api/autores/1
+
+# ───────────── Categorías ─────────────
+
+### Listar categorías
+GET {{baseUrl}}/api/categorias
+
+### Crear categoría (201)
+POST {{baseUrl}}/api/categorias
+Content-Type: application/json
+
+{
+  "nombre": "Poesía"
+}
+
+### 409 categoría duplicada (P2002)
+POST {{baseUrl}}/api/categorias
+Content-Type: application/json
+
+{
+  "nombre": "Poesía"
+}
+
+### 400 categoría sin nombre
+POST {{baseUrl}}/api/categorias
+Content-Type: application/json
+
+{
+  "nombre": "   "
+}
+
+### Categoría inexistente (404)
+GET {{baseUrl}}/api/categorias/9999
+
+### Borrar categoría (204, se borran sus vínculos en _CategoriaToLibro, no los libros)
+DELETE {{baseUrl}}/api/categorias/4

@@ -1,125 +1,129 @@
-# C16 – Persistencia en la librería
+# C17 – Relaciones y validaciones en la librería
 
-Actividad AI-C16 de Desarrollo de Software (UTN FRLP). Parte de la API en capas de C15 y reemplaza los arrays en memoria por **PostgreSQL con Prisma 7**: libros y autores ahora viven en la base y sobreviven a reinicios. La API (rutas, verbos y status) es la misma que en C15.
+Actividad AI-C17 de Desarrollo de Software (UTN FRLP). Parte de la librería de C16 (Express 5 + Prisma 7 + PostgreSQL) y agrega:
 
-El frontend sigue sin dockerizar ni consumir la API: se corre aparte con `npm run dev`.
+- **Relaciones reales**: `Autor 1:N Libro` (FK `Libro.autorId`) y `Libro N:M Categoria` (tabla intermedia implícita).
+- **Validación con Zod 4** en el backend, con middlewares `validate` y `validateParams`.
+- **`errorHandler` centralizado**: los controllers no tienen `try/catch` y cada error sale con su status (400/404/409/500).
+- **CRUD de categorías** en capas, igual que libros y autores.
+
+El frontend es el de C16, sin cambios: no consume la API.
+
+## Relaciones
+
+```
+┌──────────────┐ 1      N ┌──────────────────┐ N   (_CategoriaToLibro)   M ┌──────────────┐
+│ Autor        │──────────│ Libro            │──────────────────────────────│ Categoria    │
+│ id (PK)      │          │ id (PK)          │                              │ id (PK)      │
+│ nombre  uniq │          │ titulo           │                              │ nombre  uniq │
+│ nacionalidad │          │ precio, imagen   │                              └──────────────┘
+└──────────────┘          │ disponible       │
+                          │ autorId (FK) ────┼──> Autor.id  ON DELETE RESTRICT
+                          └──────────────────┘
+```
+
+- **1:N**: la FK va del lado N (`Libro.autorId`). `Autor.libros Libro[]` no es una columna: es el atajo de Prisma para navegar la relación.
+- **N:M implícita**: `Libro.categorias Categoria[]` + `Categoria.libros Libro[]`. Prisma crea solo la tabla `_CategoriaToLibro` (columnas `A` = categoría, `B` = libro). Sería explícita si el vínculo tuviera datos propios (p. ej. fecha de alta).
+- **`onDelete: Restrict`** (explícito): no se puede borrar un autor que tiene libros (la API responde 409). `Cascade` borraría sus libros, y `SetNull` solo sirve con una FK opcional.
 
 ## Estructura
 
 ```
-c16-persistencia/
-├── frontend/              # app React (Vite + TS), igual que C15
+c17-relaciones-validaciones/
+├── frontend/                  # app React de C16, sin cambios
 ├── backend/
-│   ├── Dockerfile
-│   ├── .env.example       # plantilla de variables (se versiona)
-│   ├── .env               # valores reales (NO va a Git)
-│   ├── api.http           # requests para la extensión REST Client (igual que C15)
-│   ├── prisma.config.ts   # config de Prisma 7: schema, migraciones, seed y DATABASE_URL
+│   ├── api.http               # requests felices y de error (REST Client)
+│   ├── prisma.config.ts
 │   ├── prisma/
-│   │   ├── schema.prisma  # modelos Libro y Autor (fuente de verdad)
-│   │   ├── migrations/    # SQL versionado que lleva la base de un estado al siguiente
-│   │   └── seed.ts        # datos iniciales (se corre una sola vez)
+│   │   ├── schema.prisma      # Autor, Libro, Categoria con relaciones
+│   │   ├── migrations/        # init_libro_autor (C16) + relaciones_autor_categoria
+│   │   └── seed.ts            # autores -> categorías -> libros con connect
 │   └── src/
-│       ├── index.ts       # servidor: express.json() y montaje de routers
-│       ├── config/        # prisma.ts: única instancia de PrismaClient (con adapter pg)
-│       ├── routes/        # verbo + ruta -> función del controller
-│       ├── controllers/   # HTTP <-> dominio, async con try/catch
-│       ├── services/      # acceso a datos con Prisma, async
-│       ├── types/         # Libro y Autor, derivados del cliente generado
-│       └── generated/     # cliente de Prisma generado (NO va a Git)
-├── docker-compose.yml     # servicios api y db + volumen pgdata
-└── .gitignore
+│       ├── index.ts           # rutas + errorHandler al final
+│       ├── config/prisma.ts
+│       ├── routes/            # verbo + ruta + middlewares de validación -> controller
+│       ├── middlewares/       # validate.middleware.ts, error.middleware.ts
+│       ├── validations/       # schemas Zod: libro, autor, categoria (+ idParamSchema)
+│       ├── controllers/       # await + status, sin try/catch
+│       ├── services/          # Prisma; include y tipos GetPayload
+│       ├── types/             # Libro, Autor, Categoria del cliente generado
+│       └── generated/         # cliente de Prisma (NO va a Git)
+└── docker-compose.yml
 ```
-
-### Las tres piezas de Prisma
-
-| Pieza | Qué es | ¿Se commitea? |
-|-------|--------|---------------|
-| `schema.prisma` | Los modelos, escritos a mano. Fuente de verdad. | Sí |
-| `migrations/` | El SQL que lleva la base de A a B. | Sí |
-| `src/generated/prisma` | Cliente generado a partir del schema (`prisma generate`). Código derivado. | No |
-
-En Prisma 7 la URL de conexión no va en el schema: va en `prisma.config.ts` (`datasource.url = process.env.DATABASE_URL`). El cliente necesita un adapter (`@prisma/adapter-pg`, driver `pg`) y se crea una sola vez en `src/config/prisma.ts`, porque cada instancia abre su propio pool de conexiones.
-
-### Responsabilidad de cada capa
-
-| Capa | Qué hace | Qué NO hace |
-|------|----------|-------------|
-| `routes` | Asocia verbo + ruta con una función del controller. | Ni un `if`. |
-| `controllers` | Leen `params`, `query` y `body`, hacen `await` al service y eligen el status (200, 201, 204, 404, 500). | No tocan la base. |
-| `services` | Consultas con Prisma. Devuelven el dato, `null` o `true`/`false`. | Nunca mencionan `req`, `res` ni status. |
-| `types` | `Libro` y `Autor`, tomados del cliente generado. | Sin lógica. |
-
-Los services y controllers son `async`: Prisma devuelve Promises y el `await` tiene que llegar hasta el controller. Un `await` olvidado no da error: responde `{}`.
-
-Los `try/catch` repetidos en los controllers son deuda a propósito: C17 los reemplaza por un middleware de errores.
-
-## Cómo levantar
-
-```bash
-cp backend/.env.example backend/.env   # completar usuario y contraseña de Postgres
-docker compose up -d
-docker compose exec api npx prisma migrate dev    # crea las tablas (en desarrollo)
-# o: docker compose exec api npx prisma migrate deploy   # aplica las existentes sin generar nuevas
-docker compose exec api npx prisma db seed        # carga los datos iniciales (UNA sola vez)
-```
-
-La API queda en <http://localhost:3000>. En el contenedor, el host de la base es `db` (el nombre del servicio en Compose); desde la máquina sería `localhost:5432`.
-
-El volume `./backend/src:/app/src` recarga la API al cambiar `src/`. Además se montan `prisma/` y `prisma.config.ts` para que los comandos de Prisma dentro del contenedor usen los archivos reales y las migraciones nuevas queden en el repo.
-
-Si cambian `package.json`, `tsconfig.json` o el `Dockerfile`: `docker compose up -d --build`. El cliente de Prisma se genera con `docker compose exec api npx prisma generate` (también lo hace `migrate dev`).
-
-El seed se corre una sola vez: dos veces duplica los libros y falla en los autores (`nombre` es único). Para volver a empezar: `docker compose exec api npx prisma migrate reset -f`.
-
-### Prisma Studio
-
-```bash
-docker compose exec api npx prisma studio --port 5555 --browser none
-```
-
-Abrir <http://localhost:5555> (el puerto 5555 está publicado en `docker-compose.yml`).
-
-### Bajar los servicios
-
-| Comando | Contenedores | Datos de Postgres (volumen `pgdata`) |
-|---------|--------------|--------------------------------------|
-| `docker compose down` | Se eliminan | Se conservan |
-| `docker compose down -v` | Se eliminan | Se borran (hay que migrar y sembrar de nuevo) |
-
-### Healthcheck
-
-`db` tiene un healthcheck (`pg_isready`) y `api` usa `depends_on: condition: service_healthy`: la API arranca cuando Postgres ya acepta conexiones, no solo cuando su contenedor existe.
 
 ## Endpoints
 
-Idénticos a C15. El `id` lo asigna la base; en `POST` y `PUT` el body lleva todos los campos menos `id`.
+`libros`, `autores` y `categorias` tienen los mismos 5 endpoints. Todos pueden responder 500 `{ "error": "Error interno del servidor" }` ante un error inesperado.
 
 | Método | Ruta | Éxito | Errores |
 |--------|------|-------|---------|
-| GET | `/` | 200 `{ "mensaje": "API de la Librería 🐳" }` | – |
-| GET | `/api/libros` | 200, lista de libros | 500 |
-| GET | `/api/libros?disponible=true` | 200, solo disponibles (`false` para los no disponibles) | 500 |
-| GET | `/api/libros/:id` | 200, el libro | 404 `{ "error": "Libro no encontrado" }` |
-| POST | `/api/libros` | 201, el libro creado con su `id` | 500 |
-| PUT | `/api/libros/:id` | 200, el libro actualizado | 404 |
-| DELETE | `/api/libros/:id` | 204, sin body | 404 |
-| GET | `/api/autores` | 200, lista de autores | 500 |
-| GET | `/api/autores/:id` | 200, el autor | 404 `{ "error": "Autor no encontrado" }` |
-| POST | `/api/autores` | 201, el autor creado con su `id` | 500 (p. ej. nombre repetido) |
-| PUT | `/api/autores/:id` | 200, el autor actualizado | 404 |
-| DELETE | `/api/autores/:id` | 204, sin body | 404 |
+| GET | `/api/libros` (`?disponible=true\|false`) | 200, cada libro con `autor` anidado | 500 |
+| GET | `/api/libros/:id` | 200, con `autor` y `categorias` | 400 id inválido, 404 |
+| POST | `/api/libros` | 201, con `autor` | 400 body inválido, 409 `autorId` inexistente (P2003) |
+| PUT | `/api/libros/:id` | 200 (body parcial) | 400, 404, 409 `autorId` inexistente |
+| DELETE | `/api/libros/:id` | 204 | 400, 404 |
+| GET | `/api/autores` | 200 | 500 |
+| GET | `/api/autores/:id` | 200 | 400, 404 |
+| POST | `/api/autores` | 201 | 400, 409 nombre repetido (P2002) |
+| PUT | `/api/autores/:id` | 200 (body parcial) | 400, 404, 409 nombre repetido |
+| DELETE | `/api/autores/:id` | 204 | 400, 404, 409 tiene libros (Restrict, P2003) |
+| GET | `/api/categorias` | 200 | 500 |
+| GET | `/api/categorias/:id` | 200 | 400, 404 |
+| POST | `/api/categorias` | 201 | 400, 409 nombre repetido |
+| PUT | `/api/categorias/:id` | 200 (body parcial) | 400, 404, 409 nombre repetido |
+| DELETE | `/api/categorias/:id` | 204 (sus vínculos en `_CategoriaToLibro` se borran en cascada; los libros no) | 400, 404 |
 
-Todos los errores inesperados responden `500 { "error": "Error interno del servidor" }`.
+Forma del 400:
 
-### Diferencias con C15
+```json
+{ "error": "Datos inválidos", "detalles": [{ "campo": "precio", "mensaje": "El precio debe ser mayor a 0" }] }
+```
 
-- `Autor.nombre` es único: crear un autor repetido falla con 500 (en C15 se permitía).
-- Un id no numérico (`GET /api/libros/abc`) ahora da **500**, no 404: `Number("abc")` es `NaN`, Prisma lanza `PrismaClientValidationError` (comprobado sin base) y el `catch` responde 500. Debería ser 400; se resuelve en C17 con validación.
-- Los ids los asigna una secuencia de Postgres: no se reutilizan al borrar. Los ids de `api.http` (libro 5, autor 4) valen solo si se corre en orden sobre una base recién sembrada.
+**Cambio de contrato respecto de C16**: el libro ya no trae `autor: "texto"`. Trae `autorId` y, por el `include`, un objeto `autor: { id, nombre, nacionalidad }`. El detalle (`GET /:id`) suma `categorias: [...]`. Para crear o editar se manda `autorId`, no el nombre.
 
-## Cómo probar con api.http
+## Validación vs regla de negocio vs constraint
 
-1. Instalar la extensión **REST Client** en VS Code.
-2. Abrir `backend/api.http` (es el de C15, sin cambios) y hacer clic en "Send Request" sobre cada request.
-3. Correrlas en orden con la base recién migrada y sembrada: el libro creado recibe `id 5` y el autor creado `id 4`.
+Defensa en profundidad: el front valida por UX, el back por seguridad (el front se puede saltear) y la base por integridad.
+
+| Capa | Qué controla | Ejemplo | Dónde | Status |
+|------|--------------|---------|-------|--------|
+| Validación | La **forma** del request | `precio` negativo, falta `titulo`, `id = "abc"` | Zod en `validations/` + middleware | 400 |
+| Regla de negocio | Algo que depende de los datos | el libro con id 9999 no existe | service devuelve `null`/`false` y el controller decide | 404 |
+| Constraint | Integridad garantizada por la base | `nombre` repetido (`@unique`), FK a un autor inexistente, borrar un autor con libros | `schema.prisma` -> error de Prisma -> `errorHandler` | 409 (P2002 / P2003), 404 (P2025) |
+
+4xx = el cliente lo arregla cambiando el request. 5xx = el problema es nuestro.
+
+## Middlewares
+
+- `validate(schema)`: `safeParse(req.body)`. Si falla, `next(error)`; si pasa, reemplaza `req.body` por el dato limpio y llama a `next()`.
+- `validateParams(schema)`: igual con `req.params` (usa `z.coerce.number()` porque todo lo que viene en la URL es string).
+- `errorHandler(err, req, res, next)`: 4 parámetros, va **después** de todas las rutas. Traduce `ZodError` a 400, `P2002`/`P2003` a 409 y `P2025` a 404; cualquier otro error lo loguea y responde 500.
+
+Express 5 manda solo a `next(err)` las promesas rechazadas de un handler `async`: por eso los controllers no necesitan `try/catch`.
+
+## Cómo levantar y migrar
+
+```bash
+cp backend/.env.example backend/.env   # completar usuario y contraseña
+docker compose up -d --build           # --build: package.json cambió (zod)
+docker compose exec api npx prisma migrate reset --force   # BORRA la base y re-aplica las migraciones
+docker compose exec api npx prisma generate
+docker compose exec api npx prisma db seed                 # reset no corre el seed
+```
+
+### Por qué `migrate reset`
+
+La migración `relaciones_autor_categoria` hace `DROP COLUMN "autor"` y `ADD COLUMN "autorId" INTEGER NOT NULL` sin default. Sobre una base que ya tiene libros, Postgres no sabe qué `autorId` poner y la migración falla. En **desarrollo** se resuelve con `migrate reset` (se pierden los datos y el seed los vuelve a cargar). En **producción**, con datos reales, se harían tres migraciones: 1) `autorId` nullable, 2) un script que completa `autorId` buscando el autor por nombre, 3) `autorId` obligatorio y `DROP` de `autor`.
+
+La migración se generó sin base con `prisma migrate diff --from-schema <schema C16> --to-schema prisma/schema.prisma --script`.
+
+## Pendiente de probar (necesita Postgres)
+
+Se verificó sin base: `prisma validate`, `prisma generate`, `tsc --noEmit`, y los casos 400 de `api.http` levantando la API con una `DATABASE_URL` falsa (la validación corta antes de llegar a Prisma).
+
+Falta probar con Docker:
+
+- [ ] Aplicar la migración con `migrate reset --force` y revisar las tablas (`\d "Libro"`, `\d "_CategoriaToLibro"`).
+- [ ] Correr el seed y verificar: `SELECT count(*) FROM "Autor";` (4), `"Categoria"` (3), `"Libro"` (4), `"_CategoriaToLibro"` (8).
+- [ ] Correr `api.http` completo, en orden: casos felices (con `autor` anidado), 404 y 409.
+- [ ] Verificar que el `errorHandler` traduce P2002 / P2003 / P2025 con el adapter-pg real (que lleguen como `PrismaClientKnownRequestError` con esos `code`).

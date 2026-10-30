@@ -7,17 +7,29 @@ datasource db {
   provider = "postgresql"
 }
 
-model Libro {
-  id         Int     @id @default(autoincrement())
-  titulo     String
-  autor      String
-  precio     Int
-  imagen     String
-  disponible Boolean @default(true)
+model Autor {
+  id           Int     @id @default(autoincrement())
+  nombre       String  @unique
+  nacionalidad String
+  // No es columna: es el lado "1" de la relación, Prisma lo resuelve con la FK de Libro
+  libros       Libro[]
 }
 
-model Autor {
-  id           Int    @id @default(autoincrement())
-  nombre       String @unique
-  nacionalidad String
+model Libro {
+  id         Int         @id @default(autoincrement())
+  titulo     String
+  precio     Int
+  imagen     String
+  disponible Boolean     @default(true)
+  // La FK va del lado N. fields = columna de esta tabla, references = columna de Autor
+  autorId    Int
+  autor      Autor       @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  // N:M implícita: Prisma crea la tabla intermedia _CategoriaToLibro
+  categorias Categoria[]
+}
+
+model Categoria {
+  id     Int     @id @default(autoincrement())
+  nombre String  @unique
+  libros Libro[]
 }
