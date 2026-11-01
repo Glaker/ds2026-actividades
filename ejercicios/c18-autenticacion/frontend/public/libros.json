@@ -1,0 +1,10 @@
+[
+  { "id": 1, "titulo": "Cien años de soledad", "autor": "Gabriel García Márquez", "imagen": "/img/portada-1.jpg", "precio": 18500, "disponible": true },
+  { "id": 2, "titulo": "Rayuela", "autor": "Julio Cortázar", "imagen": "/img/portada-2.jpg", "precio": 15900, "disponible": true },
+  { "id": 3, "titulo": "Ficciones", "autor": "Jorge Luis Borges", "imagen": "/img/portada-3.jpg", "precio": 14200, "disponible": false },
+  { "id": 4, "titulo": "El túnel", "autor": "Ernesto Sabato", "imagen": "/img/portada-4.jpg", "precio": 12800, "disponible": true },
+  { "id": 5, "titulo": "El principito", "autor": "Antoine de Saint-Exupéry", "imagen": "/img/portada-5.jpg", "precio": 9900, "disponible": true },
+  { "id": 6, "titulo": "1984", "autor": "George Orwell", "imagen": "/img/portada-6.jpg", "precio": 13500, "disponible": false },
+  { "id": 7, "titulo": "Pedro Páramo", "autor": "Juan Rulfo", "imagen": "/img/sin-portada.svg", "precio": 11200, "disponible": true },
+  { "id": 8, "titulo": "El Aleph", "autor": "Jorge Luis Borges", "imagen": "/img/sin-portada.svg", "precio": 13900, "disponible": true }
+]
