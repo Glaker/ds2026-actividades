@@ -33,3 +33,20 @@ model Categoria {
   nombre String  @unique
   libros Libro[]
 }
+
+// Enum en vez de String: un typo ("admn") no compila ni entra a la base
+enum Rol {
+  ADMIN
+  CLIENTE
+}
+
+model Usuario {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  // El nombre avisa qué guarda: el hash de bcrypt, nunca la contraseña
+  passwordHash String
+  nombre       String
+  // El rol lo pone la base, no el cliente: si viniera en el body, cualquiera se hace ADMIN
+  rol          Rol      @default(CLIENTE)
+  creadoEn     DateTime @default(now())
+}
