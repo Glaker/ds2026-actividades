@@ -1,118 +1,133 @@
-# C17 – Relaciones y validaciones en la librería
+# C18 – Seguridad en la librería
 
-Actividad AI-C17 de Desarrollo de Software (UTN FRLP). Parte de la librería de C16 (Express 5 + Prisma 7 + PostgreSQL) y agrega:
+Actividad AI-C18 de Desarrollo de Software (UTN FRLP). Parte de la librería de C17 (Express 5 + Prisma 7 + PostgreSQL + Zod 4) y agrega:
 
-- **Relaciones reales**: `Autor 1:N Libro` (FK `Libro.autorId`) y `Libro N:M Categoria` (tabla intermedia implícita).
-- **Validación con Zod 4** en el backend, con middlewares `validate` y `validateParams`.
-- **`errorHandler` centralizado**: los controllers no tienen `try/catch` y cada error sale con su status (400/404/409/500).
-- **CRUD de categorías** en capas, igual que libros y autores.
+- **Usuarios** con modelo `Usuario` y `enum Rol { ADMIN CLIENTE }`.
+- **Contraseñas hasheadas con bcrypt** (costo 10). En la base se guarda `passwordHash`, nunca la contraseña.
+- **Registro y login con JWT** (`POST /api/auth/registro`, `POST /api/auth/login`, `GET /api/auth/yo`).
+- **Middlewares `authenticate` (401) y `authorize` (403)**: la lectura es pública y la escritura queda solo para ADMIN.
+- **`omit` global de `passwordHash`** en el cliente de Prisma: el hash no sale de ninguna query salvo que se pida explícito (solo el login lo pide).
 
-El frontend es el de C16, sin cambios: no consume la API.
+El frontend es el de C16/C17, sin cambios.
 
-## Relaciones
+## Matriz de permisos
 
-```
-┌──────────────┐ 1      N ┌──────────────────┐ N   (_CategoriaToLibro)   M ┌──────────────┐
-│ Autor        │──────────│ Libro            │──────────────────────────────│ Categoria    │
-│ id (PK)      │          │ id (PK)          │                              │ id (PK)      │
-│ nombre  uniq │          │ titulo           │                              │ nombre  uniq │
-│ nacionalidad │          │ precio, imagen   │                              └──────────────┘
-└──────────────┘          │ disponible       │
-                          │ autorId (FK) ────┼──> Autor.id  ON DELETE RESTRICT
-                          └──────────────────┘
-```
+| Endpoint | Invitado | CLIENTE | ADMIN |
+|----------|:--------:|:-------:|:-----:|
+| `POST /api/auth/registro` | ✅ 201 | ✅ 201 | ✅ 201 |
+| `POST /api/auth/login` | ✅ 200 | ✅ 200 | ✅ 200 |
+| `GET /api/auth/yo` | ❌ 401 | ✅ 200 | ✅ 200 |
+| `GET /api/libros`, `GET /api/libros/:id` | ✅ 200 | ✅ 200 | ✅ 200 |
+| `GET /api/autores`, `GET /api/autores/:id` | ✅ 200 | ✅ 200 | ✅ 200 |
+| `GET /api/categorias`, `GET /api/categorias/:id` | ✅ 200 | ✅ 200 | ✅ 200 |
+| `POST` / `PUT` / `DELETE` de libros | ❌ 401 | ❌ 403 | ✅ |
+| `POST` / `PUT` / `DELETE` de autores | ❌ 401 | ❌ 403 | ✅ |
+| `POST` / `PUT` / `DELETE` de categorías | ❌ 401 | ❌ 403 | ✅ |
 
-- **1:N**: la FK va del lado N (`Libro.autorId`). `Autor.libros Libro[]` no es una columna: es el atajo de Prisma para navegar la relación.
-- **N:M implícita**: `Libro.categorias Categoria[]` + `Categoria.libros Libro[]`. Prisma crea solo la tabla `_CategoriaToLibro` (columnas `A` = categoría, `B` = libro). Sería explícita si el vínculo tuviera datos propios (p. ej. fecha de alta).
-- **`onDelete: Restrict`** (explícito): no se puede borrar un autor que tiene libros (la API responde 409). `Cascade` borraría sus libros, y `SetNull` solo sirve con una FK opcional.
+- **401 = autenticación**: "no sé quién sos" (falta el token, está vencido o mal firmado).
+- **403 = autorización**: "sé quién sos y no podés".
+
+Orden en las rutas de escritura: `authenticate -> authorize("ADMIN") -> validateParams -> validate -> controller`. Los middlewares más baratos y restrictivos van primero: un invitado recibe 401 sin ver los mensajes de validación, que describen la API. Un ADMIN con un body inválido recibe 400 (no 403).
+
+## Flujo de autenticación
+
+1. **Registro**: el cliente manda `{ nombre, email, password }`. Zod normaliza el email (trim + minúsculas) y exige una contraseña fuerte. El rol **no** se acepta del body: lo pone la base (`@default(CLIENTE)`).
+2. **Hash**: `bcrypt.hash(password, 10)` genera un salt aleatorio y lo guarda dentro del hash. Se guarda `passwordHash`; la respuesta (201) no incluye el hash. Un email repetido da P2002 -> 409.
+3. **Login**: se busca el usuario por email (pidiendo el hash con `omit: { passwordHash: false }`) y se verifica con `bcrypt.compare`. Si el email no existe o la clave está mal, se responde lo mismo, **401 "Credenciales inválidas"**, para no revelar qué emails están registrados (user enumeration).
+4. **Token**: `jwt.sign({ id, rol }, JWT_SECRET, { expiresIn: "2h" })`. El JWT (`header.payload.signature`) está **firmado, no encriptado**: cualquiera lee el payload, por eso solo lleva id y rol. Nadie puede modificarlo sin el secret.
+5. **Requests protegidos**: el cliente manda `Authorization: Bearer <token>`. `authenticate` hace `jwt.verify` (firma + vencimiento) y carga `req.usuario`. Si falla, 401 ("Falta el token", "Token inválido" o "Token expirado").
+6. **Autorización**: `authorize("ADMIN")` compara `req.usuario.rol` con los roles permitidos. Si no está, 403. Es stateless: el servidor no guarda sesiones, y como contrapartida un token no se puede revocar antes de su `exp`.
 
 ## Estructura
 
 ```
-c17-relaciones-validaciones/
+c18-autenticacion/
 ├── frontend/                  # app React de C16, sin cambios
 ├── backend/
-│   ├── api.http               # requests felices y de error (REST Client)
+│   ├── api.http               # 12 casos de auth + requests de C17 (escrituras con token ADMIN)
+│   ├── .env.example           # JWT_SECRET con placeholder (el real va en .env, que no se versiona)
 │   ├── prisma.config.ts
 │   ├── prisma/
-│   │   ├── schema.prisma      # Autor, Libro, Categoria con relaciones
-│   │   ├── migrations/        # init_libro_autor (C16) + relaciones_autor_categoria
-│   │   └── seed.ts            # autores -> categorías -> libros con connect
+│   │   ├── schema.prisma      # Autor, Libro, Categoria + Usuario y enum Rol
+│   │   ├── migrations/        # ... + usuarios_y_roles
+│   │   └── seed.ts            # idempotente; usuarios con contraseña hasheada
 │   └── src/
-│       ├── index.ts           # rutas + errorHandler al final
-│       ├── config/prisma.ts
-│       ├── routes/            # verbo + ruta + middlewares de validación -> controller
-│       ├── middlewares/       # validate.middleware.ts, error.middleware.ts
-│       ├── validations/       # schemas Zod: libro, autor, categoria (+ idParamSchema)
-│       ├── controllers/       # await + status, sin try/catch
-│       ├── services/          # Prisma; include y tipos GetPayload
-│       ├── types/             # Libro, Autor, Categoria del cliente generado
+│       ├── index.ts           # /api/auth antes que el resto, errorHandler último
+│       ├── config/
+│       │   ├── env.ts         # JWT_SECRET obligatorio, JWT_EXPIRES_IN, SALT_ROUNDS
+│       │   └── prisma.ts      # PrismaClient con omit global de passwordHash
+│       ├── routes/            # auth.routes.ts + libro/autor/categoria con authenticate/authorize
+│       ├── middlewares/       # auth.middleware.ts, validate.middleware.ts, error.middleware.ts
+│       ├── validations/       # auth.validation.ts (registro, login) + los de C17
+│       ├── controllers/       # auth.controller.ts + los de C17, sin try/catch
+│       ├── services/          # auth.service.ts (bcrypt + jwt) + los de C17
+│       ├── types/             # auth.types.ts, express.d.ts (req.usuario) + los de C17
 │       └── generated/         # cliente de Prisma (NO va a Git)
 └── docker-compose.yml
 ```
 
-## Endpoints
+## Cómo levantar
 
-`libros`, `autores` y `categorias` tienen los mismos 5 endpoints. Todos pueden responder 500 `{ "error": "Error interno del servidor" }` ante un error inesperado.
+1. En `backend/.env` (copiado de `.env.example`) agregar un `JWT_SECRET` real, largo y aleatorio:
 
-| Método | Ruta | Éxito | Errores |
-|--------|------|-------|---------|
-| GET | `/api/libros` (`?disponible=true\|false`) | 200, cada libro con `autor` anidado | 500 |
-| GET | `/api/libros/:id` | 200, con `autor` y `categorias` | 400 id inválido, 404 |
-| POST | `/api/libros` | 201, con `autor` | 400 body inválido, 409 `autorId` inexistente (P2003) |
-| PUT | `/api/libros/:id` | 200 (body parcial) | 400, 404, 409 `autorId` inexistente |
-| DELETE | `/api/libros/:id` | 204 | 400, 404 |
-| GET | `/api/autores` | 200 | 500 |
-| GET | `/api/autores/:id` | 200 | 400, 404 |
-| POST | `/api/autores` | 201 | 400, 409 nombre repetido (P2002) |
-| PUT | `/api/autores/:id` | 200 (body parcial) | 400, 404, 409 nombre repetido |
-| DELETE | `/api/autores/:id` | 204 | 400, 404, 409 tiene libros (Restrict, P2003) |
-| GET | `/api/categorias` | 200 | 500 |
-| GET | `/api/categorias/:id` | 200 | 400, 404 |
-| POST | `/api/categorias` | 201 | 400, 409 nombre repetido |
-| PUT | `/api/categorias/:id` | 200 (body parcial) | 400, 404, 409 nombre repetido |
-| DELETE | `/api/categorias/:id` | 204 (sus vínculos en `_CategoriaToLibro` se borran en cascada; los libros no) | 400, 404 |
+   ```bash
+   node -e 'console.log(require("crypto").randomBytes(48).toString("hex"))'
+   ```
 
-Forma del 400:
+   Sin `JWT_SECRET`, la API no arranca (`Falta JWT_SECRET en el .env`), y el seed tampoco, porque importa `config/env.ts`.
 
-```json
-{ "error": "Datos inválidos", "detalles": [{ "campo": "precio", "mensaje": "El precio debe ser mayor a 0" }] }
-```
+2. Levantar y preparar la base:
 
-**Cambio de contrato respecto de C16**: el libro ya no trae `autor: "texto"`. Trae `autorId` y, por el `include`, un objeto `autor: { id, nombre, nacionalidad }`. El detalle (`GET /:id`) suma `categorias: [...]`. Para crear o editar se manda `autorId`, no el nombre.
+   ```bash
+   docker compose up -d --build                     # --build: se agregaron bcrypt y jsonwebtoken
+   docker compose exec api npx prisma migrate dev   # aplica usuarios_y_roles
+   docker compose exec api npx prisma generate      # no se dispara solo
+   docker compose exec api npx prisma db seed       # tampoco se dispara solo
+   ```
 
-## Validación vs regla de negocio vs constraint
+La migración `usuarios_y_roles` solo crea el tipo `Rol`, la tabla `Usuario` y el índice único de `email`. No toca tablas existentes, así que se aplica sobre la base de C17 sin perder datos. Se generó sin base con `prisma migrate diff --from-schema <schema C17> --to-schema prisma/schema.prisma --script`.
 
-Defensa en profundidad: el front valida por UX, el back por seguridad (el front se puede saltear) y la base por integridad.
+## Usuarios del seed
 
-| Capa | Qué controla | Ejemplo | Dónde | Status |
-|------|--------------|---------|-------|--------|
-| Validación | La **forma** del request | `precio` negativo, falta `titulo`, `id = "abc"` | Zod en `validations/` + middleware | 400 |
-| Regla de negocio | Algo que depende de los datos | el libro con id 9999 no existe | service devuelve `null`/`false` y el controller decide | 404 |
-| Constraint | Integridad garantizada por la base | `nombre` repetido (`@unique`), FK a un autor inexistente, borrar un autor con libros | `schema.prisma` -> error de Prisma -> `errorHandler` | 409 (P2002 / P2003), 404 (P2025) |
+> ⚠️ Credenciales **solo de desarrollo**. No usar en producción.
 
-4xx = el cliente lo arregla cambiando el request. 5xx = el problema es nuestro.
+| Email | Contraseña | Rol |
+|-------|-----------|-----|
+| `admin@libreria.test` | `Admin1234` | ADMIN |
+| `cliente@libreria.test` | `Cliente1234` | CLIENTE |
 
-## Middlewares
+El seed es idempotente: autores y categorías con `createMany({ skipDuplicates: true })`, libros solo si la tabla está vacía y usuarios con `upsert` por email.
 
-- `validate(schema)`: `safeParse(req.body)`. Si falla, `next(error)`; si pasa, reemplaza `req.body` por el dato limpio y llama a `next()`.
-- `validateParams(schema)`: igual con `req.params` (usa `z.coerce.number()` porque todo lo que viene en la URL es string).
-- `errorHandler(err, req, res, next)`: 4 parámetros, va **después** de todas las rutas. Traduce `ZodError` a 400, `P2002`/`P2003` a 409 y `P2025` a 404; cualquier otro error lo loguea y responde 500.
+## Vulnerabilidades cubiertas
 
-Express 5 manda solo a `next(err)` las promesas rechazadas de un handler `async`: por eso los controllers no necesitan `try/catch`.
+| Riesgo | Quién lo cubre |
+|--------|----------------|
+| SQL injection | Prisma parametriza las queries (salvo `$queryRawUnsafe`) |
+| XSS | React escapa lo que renderiza (salvo `dangerouslySetInnerHTML`) |
+| Datos con forma inválida | Zod en el backend |
+| Exposición de datos sensibles | `passwordHash` + `omit` global + `select` explícito; payload del JWT solo con id y rol |
+| Autenticación rota | bcrypt, mensaje genérico en el login, JWT verificado con `jwt.verify`, secret fuera de Git |
+| Escalada de privilegios | El rol no se acepta del body; `authorize("ADMIN")` en las escrituras |
 
-## Cómo levantar y migrar
+bcrypt no protege contra contraseñas malas: por eso el registro exige 8 caracteres, una mayúscula y un número.
 
-```bash
-cp backend/.env.example backend/.env   # completar usuario y contraseña
-docker compose up -d --build           # --build: package.json cambió (zod)
-docker compose exec api npx prisma migrate reset --force   # BORRA la base y re-aplica las migraciones
-docker compose exec api npx prisma generate
-docker compose exec api npx prisma db seed                 # reset no corre el seed
-```
+## Probado sin base (sin Docker)
 
-### Por qué `migrate reset`
+Con `JWT_SECRET` de prueba, `DATABASE_URL` de mentira y `npx tsx src/index.ts`, más tokens firmados con node + jsonwebtoken:
 
-La migración `relaciones_autor_categoria` hace `DROP COLUMN "autor"` y `ADD COLUMN "autorId" INTEGER NOT NULL` sin default. Sobre una base que ya tiene libros, Postgres no sabe qué `autorId` poner y la migración falla. En **desarrollo** se resuelve con `migrate reset` (se pierden los datos y el seed los vuelve a cargar). En **producción**, con datos reales, se harían tres migraciones: 1) `autorId` nullable, 2) un script que completa `autorId` buscando el autor por nombre, 3) `autorId` obligatorio y `DROP` de `autor`.
+- Caso 3: registro con password `"corta"` -> 400 con los 3 errores.
+- Caso 7: `GET /api/auth/yo` sin header -> 401 "Falta el token".
+- Caso 9: `POST /api/libros` sin header -> 401.
+- Caso 10: `POST /api/libros` con token CLIENTE -> 403.
+- ADMIN con `{"precio":-5}` -> 400.
+- Token con un carácter del payload cambiado -> 401 "Token inválido".
+- Token vencido (`expiresIn` negativo) -> 401 "Token expirado".
 
-La migración se generó con `prisma migrate diff --from-schema <schema C16> --to-schema prisma/schema.prisma --script`.
+## Pendiente de probar
+
+Necesita Docker/Postgres:
+
+- [ ] Aplicar la migración `usuarios_y_roles` (`migrate dev`).
+- [ ] Correr el seed **dos veces** y confirmar que la segunda no falla ni duplica datos.
+- [ ] Correr los 12 casos de `api.http` contra Postgres (en particular 1, 2, 4, 5, 6, 8, 11 y 12, que tocan la base) y las requests de C17 con token ADMIN.
+- [ ] Confirmar que bcrypt funciona dentro de la imagen `node:22-alpine` (el paquete trae un prebuild `musl`, así que no debería necesitar compilar).
