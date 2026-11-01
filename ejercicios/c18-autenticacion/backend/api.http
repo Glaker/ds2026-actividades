@@ -1,8 +1,151 @@
 @baseUrl = http://localhost:3000
 
+# Tokens: salen de la respuesta de los requests con "# @name loginCliente" / "# @name loginAdmin".
+# Ejecutá esos dos logins antes de usar {{tokenCliente}} o {{tokenAdmin}}.
+@tokenCliente = {{loginCliente.response.body.token}}
+@tokenAdmin = {{loginAdmin.response.body.token}}
+
 # Correr en orden con la base recién reseteada y sembrada:
-# seed = 4 autores, 3 categorías y 4 libros. El libro creado recibe id 5,
+# seed = 4 autores, 3 categorías, 4 libros y 2 usuarios (admin y cliente, solo desarrollo).
+# El caso 11 de Auth crea el libro id 5; el de la sección Libros recibe id 6,
 # el autor creado id 5 y la categoría creada id 4.
+# Todas las escrituras (POST/PUT/DELETE) llevan el token de ADMIN.
+
+# ───────────── Auth y permisos ─────────────
+
+### 1. Registro (201, devuelve id/email/nombre/rol, sin passwordHash; rol CLIENTE)
+POST {{baseUrl}}/api/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Lectora",
+  "email": "lectora@libreria.test",
+  "password": "Libreria2026"
+}
+
+### 2. Registro con el mismo email (409, P2002 por @unique)
+POST {{baseUrl}}/api/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Lectora",
+  "email": "lectora@libreria.test",
+  "password": "Libreria2026"
+}
+
+### 3. Registro con password débil (400: largo, mayúscula y número)
+POST {{baseUrl}}/api/auth/registro
+Content-Type: application/json
+
+{
+  "nombre": "Débil",
+  "email": "debil@libreria.test",
+  "password": "corta"
+}
+
+### 4. Login con email inexistente (401 "Credenciales inválidas")
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "nadie@libreria.test",
+  "password": "Cliente1234"
+}
+
+### 5. Login con password incorrecta (401, MISMO mensaje que el 4)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "cliente@libreria.test",
+  "password": "Incorrecta123"
+}
+
+### 6. Login correcto como CLIENTE (200, { token, usuario })
+# @name loginCliente
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "cliente@libreria.test",
+  "password": "Cliente1234"
+}
+
+### 7. Quién soy, sin header (401 "Falta el token")
+GET {{baseUrl}}/api/auth/yo
+
+### 8. Quién soy, con token de CLIENTE (200)
+GET {{baseUrl}}/api/auth/yo
+Authorization: Bearer {{loginCliente.response.body.token}}
+
+### 9. Crear libro sin header (401: no sé quién sos)
+POST {{baseUrl}}/api/libros
+Content-Type: application/json
+
+{
+  "titulo": "Final del juego",
+  "autorId": 2,
+  "imagen": "/img/portada-5.jpg",
+  "precio": 13000
+}
+
+### 10. Crear libro con token CLIENTE (403: sé quién sos y no podés)
+POST {{baseUrl}}/api/libros
+Authorization: Bearer {{tokenCliente}}
+Content-Type: application/json
+
+{
+  "titulo": "Final del juego",
+  "autorId": 2,
+  "imagen": "/img/portada-5.jpg",
+  "precio": 13000
+}
+
+### 11a. Login como ADMIN (200)
+# @name loginAdmin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@libreria.test",
+  "password": "Admin1234"
+}
+
+### 11. Crear libro con token ADMIN (201, id 5)
+POST {{baseUrl}}/api/libros
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+  "titulo": "Final del juego",
+  "autorId": 2,
+  "imagen": "/img/portada-5.jpg",
+  "precio": 13000
+}
+
+### 12. Listar libros sin header (200: la lectura es pública)
+GET {{baseUrl}}/api/libros
+
+### ADMIN con datos inválidos (400, no 403: pasó authenticate y authorize, falla validate)
+POST {{baseUrl}}/api/libros
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+  "precio": -5
+}
+
+# ── Rompé el token (401 "Token inválido") ──
+# Un JWT es header.payload.signature, cada parte en base64url.
+# 1. Copiá el token de la respuesta de loginCliente.
+# 2. Cambiá UN carácter de la parte del medio (el payload), p. ej. una letra por otra.
+#    (Decodificando el payload en base64 se ve {"id":..,"rol":"CLIENTE","iat":..,"exp":..}:
+#    se puede LEER, no está encriptado. Podrías cambiar "CLIENTE" por "ADMIN"...)
+# 3. Mandalo: la firma ya no coincide con el contenido -> jwt.verify falla -> 401.
+#    Sin el JWT_SECRET nadie puede generar una firma válida para el payload modificado.
+#
+# GET {{baseUrl}}/api/auth/yo
+# Authorization: Bearer <pegá acá el token con un carácter del payload cambiado>
 
 ### Hello
 GET {{baseUrl}}/
@@ -23,6 +166,7 @@ GET {{baseUrl}}/api/libros/9999
 
 ### Crear libro (201)
 POST {{baseUrl}}/api/libros
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -34,7 +178,8 @@ Content-Type: application/json
 }
 
 ### Editar libro (200, el update acepta campos sueltos)
-PUT {{baseUrl}}/api/libros/5
+PUT {{baseUrl}}/api/libros/6
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -44,6 +189,7 @@ Content-Type: application/json
 
 ### Editar libro inexistente (404)
 PUT {{baseUrl}}/api/libros/9999
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -51,13 +197,16 @@ Content-Type: application/json
 }
 
 ### Borrar libro (204)
-DELETE {{baseUrl}}/api/libros/5
+DELETE {{baseUrl}}/api/libros/6
+Authorization: Bearer {{tokenAdmin}}
 
 ### Borrar de nuevo (404)
-DELETE {{baseUrl}}/api/libros/5
+DELETE {{baseUrl}}/api/libros/6
+Authorization: Bearer {{tokenAdmin}}
 
 ### 400 crear libro sin titulo
 POST {{baseUrl}}/api/libros
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -68,6 +217,7 @@ Content-Type: application/json
 
 ### 400 crear libro con precio negativo
 POST {{baseUrl}}/api/libros
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -87,6 +237,7 @@ GET {{baseUrl}}/api/libros/-5
 # porque la FK lo rechaza (P2003). Lo correcto sería 400 "El autor no existe" preguntando en el service.
 ### Crear libro con autorId inexistente (409 por P2003)
 POST {{baseUrl}}/api/libros
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -106,6 +257,7 @@ GET {{baseUrl}}/api/autores/9999
 
 ### Crear autor (201)
 POST {{baseUrl}}/api/autores
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -115,6 +267,7 @@ Content-Type: application/json
 
 ### 409 autor duplicado (nombre es @unique, P2002)
 POST {{baseUrl}}/api/autores
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -124,6 +277,7 @@ Content-Type: application/json
 
 ### 400 autor sin nacionalidad
 POST {{baseUrl}}/api/autores
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -132,6 +286,7 @@ Content-Type: application/json
 
 ### Editar autor (200)
 PUT {{baseUrl}}/api/autores/5
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -140,12 +295,15 @@ Content-Type: application/json
 
 ### Borrar autor sin libros (204)
 DELETE {{baseUrl}}/api/autores/5
+Authorization: Bearer {{tokenAdmin}}
 
 ### Borrar autor de nuevo (404)
 DELETE {{baseUrl}}/api/autores/5
+Authorization: Bearer {{tokenAdmin}}
 
 ### 409 borrar autor con libros (onDelete Restrict, P2003)
 DELETE {{baseUrl}}/api/autores/1
+Authorization: Bearer {{tokenAdmin}}
 
 # ───────────── Categorías ─────────────
 
@@ -154,6 +312,7 @@ GET {{baseUrl}}/api/categorias
 
 ### Crear categoría (201)
 POST {{baseUrl}}/api/categorias
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -162,6 +321,7 @@ Content-Type: application/json
 
 ### 409 categoría duplicada (P2002)
 POST {{baseUrl}}/api/categorias
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -170,6 +330,7 @@ Content-Type: application/json
 
 ### 400 categoría sin nombre
 POST {{baseUrl}}/api/categorias
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
@@ -181,3 +342,4 @@ GET {{baseUrl}}/api/categorias/9999
 
 ### Borrar categoría (204, se borran sus vínculos en _CategoriaToLibro, no los libros)
 DELETE {{baseUrl}}/api/categorias/4
+Authorization: Bearer {{tokenAdmin}}
